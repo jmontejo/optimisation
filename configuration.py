@@ -9,3 +9,4 @@ class Configuration(object):
 		self.rankingMethod = "sig"
 		self.optimisationMethod = "sig"
 		self.method = None
+		self.use_validation = False
