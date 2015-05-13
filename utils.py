@@ -1,4 +1,5 @@
 from ROOT import *
+OBJECTS = []
 
 def getHistogram(opts, tree, name, nMCEvents=False):
 	draw_cmd = "{var}>>{hist}"
@@ -23,5 +24,6 @@ def load_tree(filenames, treename):
 	treeList = []
 	for name in filenames:
 		f = TFile.Open(name)
+		OBJECTS.append(f)
 		treeList.append(f.Get(treename))
 	return treeList
