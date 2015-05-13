@@ -9,7 +9,6 @@ from collections import namedtuple
 from ratingMethods import *
 import rankVariables
 import getOptimalCut
-import utils
 import configuration
 from tabulate import tabulate
 
@@ -18,10 +17,10 @@ from tabulate import tabulate
 
 def checkInputSettings(config):
 	# check whether the important inputs are set
-	if not config.sigTree:
+	if not config.signal:
 		print "ERROR: no signal tree is selected"
 		sys.exit(1)
-	if not config.bkgTreeList:
+	if not config.backgrounds:
 		print "ERROR: no background tree is selected"
 		sys.exit(1)
 	if not config.Variables:
@@ -86,7 +85,7 @@ def optimiseCuts(config, rFile):
 	counter = 0
 
 	while True:
-		varList = rankVariables.rankVariables(config, config.sigTree, config.bkgTreeList, rankMeth_inMETHODS, bestVar)
+		varList = rankVariables.rankVariables(config, config.signal, config.backgrounds, rankMeth_inMETHODS, bestVar)
 		saveHistograms(rFile, varList, counter)
 
 		bestVar = varList[0].var 
@@ -100,7 +99,7 @@ def optimiseCuts(config, rFile):
 		else:
 			rangeDef = config.Variables[bestVar]
 			optiConfig = getOptimalCut.Settings(optMethod, bestVar, rangeDef.nBins, rangeDef.min, rangeDef.max, config.event_weight, config.enable_plots, config.preselection, rangeDef.lower_cut)
-			bestCut, bestRating, sigHist, bkgHist = getOptimalCut.getOptimalCut(optiConfig, config.sigTree, config.bkgTreeList)
+			bestCut, bestRating, sigHist, bkgHist = getOptimalCut.getOptimalCut(optiConfig, config.signal, config.backgrounds)
 			cutDirectionString = "<" if rangeDef.lower_cut else ">"
 			cutDirection = rangeDef.lower_cut
 
@@ -140,8 +139,7 @@ def parse_options():
 def main():
 	opts = parse_options()
 
-	config = configuration.Configuration()
-	execfile(opts.configFile, {"Config": config, "Utils": utils})
+	config = configuration.load_config(opts.configFile)
 
 	rFile = TFile(opts.configFile.replace(".py", ".root"), "RECREATE")
 
