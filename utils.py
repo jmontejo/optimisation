@@ -1,7 +1,6 @@
 from ROOT import *
-OBJECTS = []
 
-def getHistogram(opts, tree, name, nMCEvents=False):
+def getHistogram(opts, sample, name, nMCEvents=False):
 	draw_cmd = "{var}>>{hist}"
 	draw_cmd += "(" + str(opts.nBins) + "," + str(opts.min) + "," + str(opts.max) + ")"
 
@@ -9,6 +8,7 @@ def getHistogram(opts, tree, name, nMCEvents=False):
 	if nMCEvents:
 		eventWeight = 1
 	name += "_" + opts.var
+	tree = sample.chain
 	nEvents = tree.Draw(draw_cmd.format(var=opts.var, hist=name), str(eventWeight) + "*(" + str(opts.preselection) + ")", "e")
 	hist = gDirectory.Get(name)
 
@@ -20,10 +20,8 @@ def getHistogram(opts, tree, name, nMCEvents=False):
 
 	return hist
 
-def load_tree(filenames, treename):
-	treeList = []
+def load_chain(filenames, treename):
+	chain = TChain(treename)
 	for name in filenames:
-		f = TFile.Open(name)
-		OBJECTS.append(f)
-		treeList.append(f.Get(treename))
-	return treeList
+		chain.Add(name)
+	return chain
