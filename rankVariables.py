@@ -19,10 +19,10 @@ def scale(hist):
 
 ###############################
 
-def getRating(opts, sigTree, bkgTreeList):
-	sigHist = utils.getHistogram(opts, sigTree, "sig")
+def getRating(opts, signal, backgrounds):
+	sigHist = utils.getHistogram(opts, signal, "sig")
 	bkgHist = None
-	for i, bkgTree in enumerate(bkgTreeList):
+	for i, bkgTree in enumerate(backgrounds):
 		if not bkgHist:
 			bkgHist = utils.getHistogram(opts, bkgTree, "bkg_" + str(i))
 		else:
@@ -46,7 +46,7 @@ def getRating(opts, sigTree, bkgTreeList):
 
 Rating = namedtuple("Rating", "var cut rating lower_cut sigHist bkgHist")
 
-def rankVariables(opts, sigTree, bkgTreeList, useGetOptimalCut, lastCutVar=None):
+def rankVariables(opts, signal, backgrounds, useGetOptimalCut, lastCutVar=None):
 	gROOT.SetBatch(True)
 	varRating = []
 
@@ -58,9 +58,9 @@ def rankVariables(opts, sigTree, bkgTreeList, useGetOptimalCut, lastCutVar=None)
 		bkgHist = None
 		config = getOptimalCut.Settings(opts.method, var, rangeDef.nBins, rangeDef.min, rangeDef.max, opts.event_weight, opts.enable_plots, opts.preselection, rangeDef.lower_cut)
 		if useGetOptimalCut:
-			cut, rating, sigHist, bkgHist = getOptimalCut.getOptimalCut(config, sigTree, bkgTreeList)
+			cut, rating, sigHist, bkgHist = getOptimalCut.getOptimalCut(config, signal, backgrounds)
 		else:
-			rating, storeVar, sigHist, bkgHist = getRating(config, sigTree, bkgTreeList)
+			rating, storeVar, sigHist, bkgHist = getRating(config, signal, backgrounds)
 
 		if storeVar:
 			varRating.append(Rating(var, cut, rating, rangeDef.lower_cut, sigHist, bkgHist))
@@ -124,21 +124,21 @@ def main():
 	opts = parse_options()
 
 	sigFile = TFile.Open(opts.signal)
-	sigTree = sigFile.Get(opts.tree_name)
+	signal = sigFile.Get(opts.tree_name)
 
 	bkgFileList = []
-	bkgTreeList = []
+	backgrounds = []
 	for bkg in opts.bkgs:
 		bkgFile = TFile.Open(bkg)
 		bkgFileList.append(bkgFile)
-		bkgTreeList.append(bkgFile.Get(opts.tree_name))
+		backgrounds.append(bkgFile.Get(opts.tree_name))
 
 	config = {}
 	execfile(opts.varFile, config)
 	variables = config["Variables"]
 	opts.Variables = variables
 
-	outcome = rankVariables(opts, sigTree, bkgTreeList, useGetOptimalCut, opts.useGetOptimalCut)
+	outcome = rankVariables(opts, signal, backgrounds, useGetOptimalCut, opts.useGetOptimalCut)
 
 ###############################
 

@@ -166,13 +166,13 @@ def addHists(histList):
 
 ###############################
 
-def getOptimalCut(opts, sigTree, bkgTreeList):
+def getOptimalCut(opts, signal, backgrounds):
 	gROOT.SetBatch(True)
-	sigHist = utils.getHistogram(opts, sigTree, "sig")
-	sigHistMC = utils.getHistogram(opts, sigTree, "sigMC", nMCEvents=True)
+	sigHist = utils.getHistogram(opts, signal, "sig")
+	sigHistMC = utils.getHistogram(opts, signal, "sigMC", nMCEvents=True)
 	bkgHistList = []
 	bkgHistMCList = []
-	for i, bkgTree in enumerate(bkgTreeList):
+	for i, bkgTree in enumerate(backgrounds):
 		bkgHistList.append(utils.getHistogram(opts, bkgTree, "bkg_" + str(i)))
 		bkgHistMCList.append(utils.getHistogram(opts, bkgTree, "bkgMC_" + str(i), nMCEvents=True))
 
@@ -256,18 +256,18 @@ def main():
 		opts = parse_options()
 
 		sigFile = TFile.Open(opts.signal)
-		sigTree = sigFile.Get(opts.tree_name)
+		signal = sigFile.Get(opts.tree_name)
 
 		bkgFileList = []
-		bkgTreeList = []
+		backgrounds = []
 		for bkg in opts.bkgs:
 			bkgFile = TFile.Open(bkg)
 			bkgFileList.append(bkgFile)
-			bkgTreeList.append(bkgFile.Get(opts.tree_name))
+			backgrounds.append(bkgFile.Get(opts.tree_name))
 
 
 		config = Settings(opts.method, opts.var, opts.nBins, opts.min, opts.max, opts.event_weight, opts.enable_plots, opts.preselection, opts.lower_cut)
-		cutValue, rating, sigHist, bkgHist = getOptimalCut(config, sigTree, bkgTreeList)
+		cutValue, rating, sigHist, bkgHist = getOptimalCut(config, signal, backgrounds)
 		print cutValue, rating
 
 ###############################
