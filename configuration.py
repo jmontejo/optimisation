@@ -9,7 +9,6 @@ class Configuration(object):
 		self.Variables = None
 		self.preselection = "1"
 		self.event_weight = 1.
-		self.add_weight = None
 		self.lumi = 10e3
 		self.enable_plots = False
 		self.rankingMethod = "sig"
