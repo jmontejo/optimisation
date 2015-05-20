@@ -137,6 +137,8 @@ def parse_options():
 ###############################
 
 def main():
+	gROOT.ProcessLine("gErrorIgnoreLevel = 1001;") # ignore INFO and below
+
 	opts = parse_options()
 
 	config = configuration.load_config(opts.configFile)
