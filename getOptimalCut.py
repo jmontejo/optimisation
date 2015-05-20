@@ -78,7 +78,7 @@ def calcIntegral(sigHist, bkgHistList, start, end):
 		bkg_nEvents += bkgHist.Integral(start, end)
 	return sig_nEvents, bkg_nEvents
 
-def calcCutRating(opts, sigHist, bkgHistList, ibin):
+def calcCutRating(opts, sigHist, bkgHistList, bkgUnc, ibin):
 	sig_nEvents = 0
 	bkg_nEvents = 0
 	if opts.lower_cut:
@@ -88,7 +88,8 @@ def calcCutRating(opts, sigHist, bkgHistList, ibin):
 		end = sigHist.GetNbinsX()+1
 		sig_nEvents, bkg_nEvents = calcIntegral(sigHist, bkgHistList, ibin, end)
 
-	return opts.method.calc(sig_nEvents, bkg_nEvents)
+	# TODO: fix methods which are lumi depened
+	return opts.method.calc(sig_nEvents, bkg_nEvents, bkgUnc)
 
 
 def checkMCStatistics(opts, sigHistMC, bkgHistMCList, ibin):
@@ -127,9 +128,9 @@ def getRoundedCutValue(opts, binC, hist):
 		value = round(value, -4)
 	return value
 
-def checkRoundingEffects(opts, sigHist, bkgHistList, cutValue, rating):
+def checkRoundingEffects(opts, sigHist, bkgHistList, cutValue, rating, bkgUnc):
 	binC = sigHist.GetXaxis().FindBin(cutValue)
-	ratingRounded = calcCutRating(opts, sigHist, bkgHistList, binC)
+	ratingRounded = calcCutRating(opts, sigHist, bkgHistList, bkgUnc, binC)
 	if abs(rating - ratingRounded) / rating > 0.1:
 		print "ERROR: rounding influences the ratings too much"
 		return None
@@ -166,7 +167,7 @@ def addHists(histList):
 
 ###############################
 
-def getOptimalCut(opts, signal, backgrounds):
+def getOptimalCut(opts, signal, backgrounds, bkgUnc):
 	gROOT.SetBatch(True)
 	sigHist = utils.getHistogram(opts, signal, "sig")
 	sigHistMC = utils.getHistogram(opts, signal, "sigMC", nMCEvents=True)
@@ -184,7 +185,7 @@ def getOptimalCut(opts, signal, backgrounds):
 	bestBin = None
 	graph = TGraph(opts.nBins)
 	for ibin in xrange(opts.nBins):
-		rating = calcCutRating(opts, sigHist, bkgHistList, ibin)
+		rating = calcCutRating(opts, sigHist, bkgHistList, bkgUnc, ibin)
 		if opts.lower_cut:
 			graph.SetPoint(ibin, sigHist.GetBinLowEdge(ibin+1), rating)
 		else:
@@ -199,7 +200,7 @@ def getOptimalCut(opts, signal, backgrounds):
 		plotRating(opts, graph)
 
 	cutValue = getRoundedCutValue(opts, bestBin, sigHist)
-	ratingRounded = False# = checkRoundingEffects(opts, sigHist, bkgHistList, cutValue, bestCut)
+	ratingRounded = False# = checkRoundingEffects(opts, sigHist, bkgHistList, cutValue, bestCut, bkgUnc)
 
 	optimalCutValue = None
 	optimalRating = None
@@ -234,7 +235,8 @@ def parse_options():
 		parser.add_argument("--tree-name", default="CollectionTree", help="tree name for the input file (must be the same for signal and bkg")
 		parser.add_argument("--event-weight", default="1.", help="name for the stored event weight")
 		parser.add_argument("-s", "--signal", required=True, help="the signal sample")
-		parser.add_argument("-b", "--background", dest="bkgs", required=True, action="append", help="the background sample")
+		parser.add_argument("-b", "--background", dest="bkgs", required=True, action="append", help="the background samples")
+		parser.add_argument("--bkgUnc", default=None, help="the background uncertainty")
 		parser.add_argument("--nBins", default=100, help="the number of bins which are used to define the optimal cut")
 		parser.add_argument("--lower-cut", action="store_true", help="events survive when their value is lower than the cut value")
 
@@ -267,7 +269,7 @@ def main():
 
 
 		config = Settings(opts.method, opts.var, opts.nBins, opts.min, opts.max, opts.event_weight, opts.enable_plots, opts.preselection, opts.lower_cut)
-		cutValue, rating, sigHist, bkgHist = getOptimalCut(config, signal, backgrounds)
+		cutValue, rating, sigHist, bkgHist = getOptimalCut(config, signal, backgrounds, opts.bkgUnc)
 		print cutValue, rating
 
 ###############################

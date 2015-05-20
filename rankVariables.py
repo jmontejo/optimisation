@@ -46,7 +46,7 @@ def getRating(opts, signal, backgrounds):
 
 Rating = namedtuple("Rating", "var cut rating lower_cut sigHist bkgHist")
 
-def rankVariables(opts, signal, backgrounds, useGetOptimalCut, lastCutVar=None):
+def rankVariables(opts, signal, backgrounds, useGetOptimalCut, bkgUnc, lastCutVar=None):
 	gROOT.SetBatch(True)
 	varRating = []
 
@@ -58,7 +58,7 @@ def rankVariables(opts, signal, backgrounds, useGetOptimalCut, lastCutVar=None):
 		bkgHist = None
 		config = getOptimalCut.Settings(opts.method, var, rangeDef.nBins, rangeDef.min, rangeDef.max, opts.event_weight, opts.enable_plots, opts.preselection, rangeDef.lower_cut)
 		if useGetOptimalCut:
-			cut, rating, sigHist, bkgHist = getOptimalCut.getOptimalCut(config, signal, backgrounds)
+			cut, rating, sigHist, bkgHist = getOptimalCut.getOptimalCut(config, signal, backgrounds, bkgUnc)
 		else:
 			rating, storeVar, sigHist, bkgHist = getRating(config, signal, backgrounds)
 
@@ -102,6 +102,7 @@ def parse_options():
         parser.add_argument("--event-weight", default="1.", help="name for the stored event weight")
         parser.add_argument("-s", "--signal", required=True, help="the signal sample")
         parser.add_argument("-b", "--background", dest="bkgs", required=True, action="append", help="the background sample")
+        parser.add_argument("--bkgUnc", default=None, help="the background uncertainty")
      
         parser.add_argument("varFile", help="a python file with a list of variables which should analysed")
 
@@ -138,7 +139,7 @@ def main():
 	variables = config["Variables"]
 	opts.Variables = variables
 
-	outcome = rankVariables(opts, signal, backgrounds, useGetOptimalCut, opts.useGetOptimalCut)
+	outcome = rankVariables(opts, signal, backgrounds, useGetOptimalCut, opts.useGetOptimalCut, opts.bkgUnc)
 
 ###############################
 

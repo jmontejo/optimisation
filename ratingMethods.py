@@ -6,8 +6,11 @@ RatingMethod = namedtuple("RatingMethod", "name title calc compare")
 
 ###############################
 
-def calcSig(sig_nEvents, bkg_nEvents):
+def calcSig(sig_nEvents, bkg_nEvents, bkgUnc=None):
 	if bkg_nEvents != 0:
+		if bkgUnc:
+			print "Significance is calculated using some flat background uncertainty"
+			return (sig_nEvents / math.sqrt(bkg_nEvents + (bkgUnc*bkg_nEvents)))
 		return (sig_nEvents / math.sqrt(bkg_nEvents))
 	else:
 		return 0
@@ -17,7 +20,7 @@ def compSig(sigA, sigB):
 
 ###############################
 
-def calcOverlap(sigHist, bkgHist):
+def calcOverlap(sigHist, bkgHist, bkgUnc=None):
 	# this value should be one when both distributions are identical
 	# this value should be zero if both distributions do not overlap
 	envelope = sigHist.Clone()
@@ -37,8 +40,8 @@ def compOverlap(areaA, areaB):
 
 ###############################
 
-def calcRooStats(sig_nEvents, bkg_nEvents):
-	return RooStats.NumberCountingUtils.BinomialExpZ(sig_nEvents, bkg_nEvents, 0.15) # last parameter is bkg uncertainty --> get this configurable
+def calcRooStats(sig_nEvents, bkg_nEvents, bkgUnc=0.2):
+	return RooStats.NumberCountingUtils.BinomialExpZ(sig_nEvents, bkg_nEvents, bkgUnc) # last parameter is bkg uncertainty --> get this configurable
 
 def compareRooStats(sigA, sigB):
 	return sigA > sigB

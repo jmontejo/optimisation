@@ -85,7 +85,7 @@ def optimiseCuts(config, rFile):
 	counter = 0
 
 	while True:
-		varList = rankVariables.rankVariables(config, config.signal, config.backgrounds, rankMeth_inMETHODS, bestVar)
+		varList = rankVariables.rankVariables(config, config.signal, config.backgrounds, rankMeth_inMETHODS, config.flatBkgUncertainty, bestVar)
 		saveHistograms(rFile, varList, counter)
 
 		bestVar = varList[0].var 
@@ -99,7 +99,7 @@ def optimiseCuts(config, rFile):
 		else:
 			rangeDef = config.Variables[bestVar]
 			optiConfig = getOptimalCut.Settings(optMethod, bestVar, rangeDef.nBins, rangeDef.min, rangeDef.max, config.event_weight, config.enable_plots, config.preselection, rangeDef.lower_cut)
-			bestCut, bestRating, sigHist, bkgHist = getOptimalCut.getOptimalCut(optiConfig, config.signal, config.backgrounds)
+			bestCut, bestRating, sigHist, bkgHist = getOptimalCut.getOptimalCut(optiConfig, config.signal, config.backgrounds, config.flatBkgUncertainty)
 			cutDirectionString = "<" if rangeDef.lower_cut else ">"
 			cutDirection = rangeDef.lower_cut
 
@@ -140,7 +140,6 @@ def main():
 	gROOT.ProcessLine("gErrorIgnoreLevel = 1001;") # ignore INFO and below
 
 	opts = parse_options()
-
 	config = configuration.load_config(opts.configFile)
 
 	rFile = TFile(opts.configFile.replace(".py", ".root"), "RECREATE")
