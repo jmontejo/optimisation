@@ -1,4 +1,5 @@
 from ROOT import *
+import sys
 
 def getHistogram(opts, sample, name, nMCEvents=False):
 	draw_cmd = "{var}>>{hist}"
@@ -20,8 +21,13 @@ def getHistogram(opts, sample, name, nMCEvents=False):
 
 	return hist
 
-def load_chain(filenames, treename):
+def load_chain(filenames, treename, print_files=False):
 	chain = TChain(treename)
 	for name in filenames:
 		chain.Add(name)
+
+	if print_files:
+		for filename in chain.GetListOfFiles():
+			print filename.GetTitle()
+
 	return chain
