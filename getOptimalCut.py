@@ -234,6 +234,7 @@ def parse_options():
 		parser.add_argument("-m", "--method", choices=[m.name for m in METHODS], default="sig", help="which method should be used for the optimisation")
 		parser.add_argument("--tree-name", default="CollectionTree", help="tree name for the input file (must be the same for signal and bkg")
 		parser.add_argument("--event-weight", default="1.", help="name for the stored event weight")
+		parser.add_argument("-l", "--lumi", default=10e3, help="the luminosity which should be used for the optimisation")
 		parser.add_argument("-s", "--signal", required=True, help="the signal sample")
 		parser.add_argument("-b", "--background", dest="bkgs", required=True, action="append", help="the background samples")
 		parser.add_argument("--bkgUnc", default=None, help="the background uncertainty")
@@ -252,7 +253,7 @@ def parse_options():
 
 ###############################
 
-Settings = namedtuple("Settings", "method var nBins min max event_weight enable_plots preselection lower_cut")
+Settings = namedtuple("Settings", "method var nBins min max event_weight lumi enable_plots preselection lower_cut")
 
 def main():
 		opts = parse_options()
@@ -268,7 +269,7 @@ def main():
 			backgrounds.append(bkgFile.Get(opts.tree_name))
 
 
-		config = Settings(opts.method, opts.var, opts.nBins, opts.min, opts.max, opts.event_weight, opts.enable_plots, opts.preselection, opts.lower_cut)
+		config = Settings(opts.method, opts.var, opts.nBins, opts.min, opts.max, opts.event_weight, opts.lumi, opts.enable_plots, opts.preselection, opts.lower_cut)
 		cutValue, rating, sigHist, bkgHist = getOptimalCut(config, signal, backgrounds, opts.bkgUnc)
 		print cutValue, rating
 

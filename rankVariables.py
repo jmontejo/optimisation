@@ -56,7 +56,7 @@ def rankVariables(opts, signal, backgrounds, useGetOptimalCut, bkgUnc, lastCutVa
 		storeVar = True
 		sigHist = None
 		bkgHist = None
-		config = getOptimalCut.Settings(opts.method, var, rangeDef.nBins, rangeDef.min, rangeDef.max, opts.event_weight, opts.enable_plots, opts.preselection, rangeDef.lower_cut)
+		config = getOptimalCut.Settings(opts.method, var, rangeDef.nBins, rangeDef.min, rangeDef.max, opts.event_weight, opts.lumi, opts.enable_plots, opts.preselection, rangeDef.lower_cut)
 		if useGetOptimalCut:
 			cut, rating, sigHist, bkgHist = getOptimalCut.getOptimalCut(config, signal, backgrounds, bkgUnc)
 		else:
@@ -100,6 +100,7 @@ def parse_options():
         parser.add_argument("-m", "--method", choices=[m.name for m in METHODS], default="sig", help="which method should be used for the optimisation")
         parser.add_argument("--tree-name", default="CollectionTree", help="tree name for the input file (must be the same for signal and bkg")
         parser.add_argument("--event-weight", default="1.", help="name for the stored event weight")
+        parser.add_argument("-l", "--lumi", default=10e3, help="the luminosity which should be used")
         parser.add_argument("-s", "--signal", required=True, help="the signal sample")
         parser.add_argument("-b", "--background", dest="bkgs", required=True, action="append", help="the background sample")
         parser.add_argument("--bkgUnc", default=None, help="the background uncertainty")
