@@ -1,5 +1,6 @@
 from collections import namedtuple
 import math
+from ROOT import *
 
 RatingMethod = namedtuple("RatingMethod", "name title calc compare")
 
@@ -36,13 +37,23 @@ def compOverlap(areaA, areaB):
 
 ###############################
 
+def calcRooStats(sig_nEvents, bkg_nEvents):
+	return RooStats.NumberCountingUtils.BinomialExpZ(sig_nEvents, bkg_nEvents, 0.15) # last parameter is bkg uncertainty --> get this configurable
+
+def compareRooStats(sigA, sigB):
+	return sigA > sigB
+
+###############################
+
 METHODS = [
-	RatingMethod("sig", "significane", calcSig, compSig)
+	RatingMethod("sig", "significane", calcSig, compSig),
+	RatingMethod("roostats", "roostats", calcRooStats, compareRooStats)
 ]
 
 METHODS_RANK = [
 	RatingMethod("ovlap", "overlap", calcOverlap, compOverlap)
 ]
+
 
 ###############################
 
