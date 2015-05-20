@@ -9,9 +9,12 @@ class Configuration(object):
 		self.Variables = None
 		self.preselection = "1"
 		self.event_weight = 1.
+		self.add_weight = None
+		self.lumi = 10e3
 		self.enable_plots = False
 		self.rankingMethod = "sig"
 		self.optimisationMethod = "sig"
+		self.flatBkgUncertainty = 0.1
 		self.method = None
 		self.use_validation = False # if enabled, an output tree is produced
 
