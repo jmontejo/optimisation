@@ -14,7 +14,7 @@ class Configuration(object):
 		self.enable_plots = False
 		self.rankingMethod = "sig"
 		self.optimisationMethod = "sig"
-		self.flatBkgUncertainty = 0.1
+		self.flatBkgUncertainty = None
 		self.method = None
 		self.use_validation = False # if enabled, an output tree is produced
 
