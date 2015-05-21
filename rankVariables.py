@@ -77,9 +77,9 @@ def rankVariables(opts, signal, backgrounds, useGetOptimalCut, bkgUnc, lastCutVa
 	table = []
 	header = None
 	if useGetOptimalCut:
-		header = ["variable name", "cut value", opts.method.title]
+		header = ["variable name", "cut value", opts.method.title, "signal", "background"]
 		for rating in varRating:
-			table.append([rating.var, rating.cut, rating.rating])
+			table.append([rating.var, rating.cut, rating.rating, sigHist.Integral(), bkgHist.Integral()])
 	else:
 		header = ["variable name", opts.method.title]
 		for rating in varRating:
