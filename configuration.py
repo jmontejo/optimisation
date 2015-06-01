@@ -1,6 +1,6 @@
 import ROOT
 from collections import namedtuple
-Sample = namedtuple("Sample", "name chain weight color")
+Sample = namedtuple("Sample", "name chain color")
 
 class Configuration(object):
 	def __init__(self):
@@ -17,8 +17,8 @@ class Configuration(object):
 		self.method = None
 		self.use_validation = False # if enabled, an output tree is produced
 
-def sample(name, chain, weight=1.0, color=ROOT.kBlack):
-	return Sample(name, chain, weight, color)
+def sample(name, chain, color=ROOT.kBlack):
+	return Sample(name, chain, color)
 
 def load_config(filename):
 	import utils
