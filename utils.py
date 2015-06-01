@@ -1,20 +1,19 @@
 from ROOT import *
 import sys
 
-def getHistogram(opts, sample, name, nMCEvents=False):
+def getHistogram(var, nBins, minV, maxV, tree, event_weight, name, preselection, lumi, nMCEvents=False):
 	draw_cmd = "{var}>>{hist}"
-	draw_cmd += "(" + str(opts.nBins) + "," + str(opts.min) + "," + str(opts.max) + ")"
+	draw_cmd += "(" + str(nBins) + "," + str(minV) + "," + str(maxV) + ")"
 
-	eventWeight = opts.event_weight
+	eventWeight = event_weight
 	if nMCEvents:
 		eventWeight = 1
-	name += "_" + opts.var
-	tree = sample.chain
-	nEvents = tree.Draw(draw_cmd.format(var=opts.var, hist=name), str(eventWeight) + "*(" + str(opts.preselection) + ")", "e")
+	name += "_" + var
+	nEvents = tree.Draw(draw_cmd.format(var=var, hist=name), str(eventWeight) + "*(" + str(preselection) + ")", "e")
 	hist = gDirectory.Get(name)
 
 	if not nMCEvents:
-		hist.Scale(opts.lumi)
+		hist.Scale(lumi)
 
 	if not hist:
 		print "ERROR: histogram could not be loaded correctly --> maybe it is empty?"
