@@ -41,7 +41,7 @@ def compOverlap(areaA, areaB):
 ###############################
 
 def calcRooStats(sig_nEvents, bkg_nEvents, bkgUnc=0.2):
-	return RooStats.NumberCountingUtils.BinomialExpZ(sig_nEvents, bkg_nEvents, bkgUnc) # last parameter is bkg uncertainty --> get this configurable
+	return RooStats.NumberCountingUtils.BinomialExpZ(sig_nEvents, bkg_nEvents, bkgUnc)
 
 def compareRooStats(sigA, sigB):
 	return sigA > sigB
