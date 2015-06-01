@@ -14,8 +14,8 @@ def ensure_dir(d):
 	if not os.path.exists(d):
 		os.makedirs(d)
 
-def saveCanv(opts, canv, directory, append=None, rootFile=False):
-	name = opts.var
+def saveCanv(var, canv, directory, append=None, rootFile=False):
+	name = var
 	if append:
 		name = name + "_" + append
 
@@ -29,7 +29,7 @@ def saveCanv(opts, canv, directory, append=None, rootFile=False):
 
 ###############################
 
-def plotVarDistribution(opts, sigHist, bkgHistList):
+def plotVarDistribution(var, sigHist, bkgHistList):
 	sigHist.SetLineColor(kRed + 1)
 	sigHist.SetLineWidth(3)
 
@@ -51,23 +51,23 @@ def plotVarDistribution(opts, sigHist, bkgHistList):
 	stack = THStack()
 	stack.Add(sigHist, "hist")
 	stack.Add(bkgHist, "hist")
-	stack.SetTitle(";" + opts.var + "; # events")
+	stack.SetTitle(";" + var + "; # events")
 
 	c = TCanvas("plotVar", "", 600, 600)
 	c.SetLogy()
 	stack.Draw("nostack")
 	leg.Draw("same")
 
-	saveCanv(opts, c, "plots")
+	saveCanv(var, c, "plots")
 
-def plotRating(opts, graph):
+def plotRating(var, title, graph):
 	graph.SetLineWidth(3)
-	graph.SetTitle(";" + opts.var + ";" + opts.method.title)
+	graph.SetTitle(";" + var + ";" + title)
 
 	c = TCanvas("plotRating", "", 600, 600)
 	graph.Draw("al")
 
-	saveCanv(opts, c, "plots", "rat")
+	saveCanv(var, c, "plots", "rat")
 
 ###############################
 
@@ -78,81 +78,6 @@ def calcIntegral(sigHist, bkgHistList, start, end):
 		bkg_nEvents += bkgHist.Integral(start, end)
 	return sig_nEvents, bkg_nEvents
 
-def calcCutRating(opts, sigHist, bkgHistList, bkgUnc, ibin):
-	sig_nEvents = 0
-	bkg_nEvents = 0
-	if opts.lower_cut:
-		begin = 0
-		sig_nEvents, bkg_nEvents = calcIntegral(sigHist, bkgHistList, begin, ibin)
-	else:
-		end = sigHist.GetNbinsX()+1
-		sig_nEvents, bkg_nEvents = calcIntegral(sigHist, bkgHistList, ibin, end)
-
-	# TODO: fix methods which are lumi depened
-	return opts.method.calc(sig_nEvents, bkg_nEvents, bkgUnc)
-
-
-def checkMCStatistics(opts, sigHistMC, bkgHistMCList, ibin):
-	sig_nMCEvents = 0
-	bkg_nMCEvents = 0
-	if opts.lower_cut:
-		begin = 0
-		sig_nMCEvents, bkg_nMCEvents = calcIntegral(sigHistMC, bkgHistMCList, begin, ibin)
-	else:
-		end = sigHistMC.GetNbinsX()+1
-		sig_nMCEvents, bkg_nMCEvents = calcIntegral(sigHistMC, bkgHistMCList, ibin, end)
-
-	if (sig_nMCEvents < 10) or (bkg_nMCEvents < 10):
-		return False
-	return True
-
-###############################
-
-def getRoundedCutValue(opts, binC, hist):
-	value = None
-	if opts.lower_cut:
-		value = hist.GetBinLowEdge(binC+1)
-	else:
-		value = hist.GetBinLowEdge(binC)
-	if opts.max < 10:
-		value = round(value,1)
-	elif opts.max < 100:
-		value = round(value)
-	elif opts.max < 2000:
-		value = round(value,-1)
-	elif opts.max < 10000:
-		value = round(value, -2)
-	elif opts.max < 100000:
-		value = round(value, -3)
-	elif opts.max < 1000000:
-		value = round(value, -4)
-	return value
-
-def checkRoundingEffects(opts, sigHist, bkgHistList, cutValue, rating, bkgUnc):
-	binC = sigHist.GetXaxis().FindBin(cutValue)
-	ratingRounded = calcCutRating(opts, sigHist, bkgHistList, bkgUnc, binC)
-	if abs(rating - ratingRounded) / rating > 0.1:
-		print "ERROR: rounding influences the ratings too much"
-		return None
-	return ratingRounded
-
-def checkCutValue(opts, optimalCutValue, bestBin):
-	if opts.lower_cut:
-		if (optimalCutValue < opts.max):
-			return optimalCutValue # everythin is fine
-		elif (optimalCutValue > opts.max) and (bestBin == opts.nBins):
-			return opts.max # the overflow bin is chose, set the cut to something meaningful
-		else:
-			print "ERROR: cut value to larger, but the corresponding bin is not the overflow bin"
-			return optimalCutValue
-	else:
-		if (optimalCutValue > opts.min):
-			return optimalCutValue # everything is fine
-		elif (optimalCutValue < opts.min) and (bestBin == 0):
-			return opts.min # the underflow bin is chosen, set the cut to something meaningful
-		else:
-			print "ERROR: cut value is too small, but the corresponding bin is not the underflow bin"
-			return optimalCutValue
 
 ###############################
 
@@ -167,60 +92,156 @@ def addHists(histList):
 
 ###############################
 
-def getOptimalCut(opts, signal, backgrounds, bkgUnc):
-	gROOT.SetBatch(True)
-	sigHist = utils.getHistogram(opts, signal, "sig")
-	sigHistMC = utils.getHistogram(opts, signal, "sigMC", nMCEvents=True)
-	bkgHistList = []
-	bkgHistMCList = []
-	for i, bkgTree in enumerate(backgrounds):
-		bkgHistList.append(utils.getHistogram(opts, bkgTree, "bkg_" + str(i)))
-		bkgHistMCList.append(utils.getHistogram(opts, bkgTree, "bkgMC_" + str(i), nMCEvents=True))
+def initCutFinder(finder, opts, signal, backgrounds):
+	finder.signal = signal
+	finder.backgrounds = backgrounds
+	finder.bkgUnc = opts.bkgUnc
+	finder.preselection = opts.preselection
+	finder.event_weight = opts.event_weight
+	finder.lumi = opts.lumi
+	finder.method = opts.method
+
+###############################
+
+class CutFinder(object):
+	def __init__(self):
+		self.signal = None
+		self.backgrounds = None
+		self.bkgUnc = None
+		self.preselection = "1"
+		self.event_weight = 1.
+		self.lumi = 10e3
+		self.method = "sig"
+		self.enable_plots = False
+
+	def getOptimalCut(self, var, nbins, minV, maxV, lower_cut):
+		sigHist = utils.getHistogram(var, nbins, minV, maxV, self.signal, self.event_weight, "sig", self.preselection, self.lumi)
+		sigHistMC = utils.getHistogram(var, nbins, minV, maxV, self.signal, self.event_weight, "sigMC", self.preselection, self.lumi, nMCEvents=True)
+		bkgHistList = []
+		bkgHistMCList = []
+		for i, bkgTree in enumerate(self.backgrounds):
+			bkgHistList.append(utils.getHistogram(var, nbins, minV, maxV, bkgTree, self.event_weight, "bkg_" + str(i), self.preselection, self.lumi))
+			bkgHistMCList.append(utils.getHistogram(var, nbins, minV, maxV, bkgTree, self.event_weight, "bkgMC_" + str(i), self.preselection, self.lumi, nMCEvents=True))
 
 
-	if opts.enable_plots:
-		plotVarDistribution(opts, sigHist, bkgHistList)
+		if self.enable_plots:
+			plotVarDistribution(var, sigHist, bkgHistList)
 
-	bestCut = None
-	bestBin = None
-	graph = TGraph(opts.nBins)
-	for ibin in xrange(opts.nBins):
-		rating = calcCutRating(opts, sigHist, bkgHistList, bkgUnc, ibin)
-		if opts.lower_cut:
-			graph.SetPoint(ibin, sigHist.GetBinLowEdge(ibin+1), rating)
+		bestCut = None
+		bestBin = None
+		graph = TGraph()
+		for ibin in xrange(nbins):
+			rating = self.calcCutRating(sigHist, bkgHistList, lower_cut, ibin)
+			if lower_cut:
+				graph.SetPoint(ibin, sigHist.GetBinLowEdge(ibin+1), rating)
+			else:
+				graph.SetPoint(ibin, sigHist.GetBinLowEdge(ibin), rating)
+			
+			if not bestCut or self.method.compare(rating, bestCut):
+				if self.checkMCStatistics(sigHistMC, bkgHistMCList, lower_cut, ibin):
+					bestCut = rating
+					bestBin = ibin
+
+		# HERE
+		if self.enable_plots:
+			plotRating(var, self.method.title, graph)
+
+		cutValue = self.getRoundedCutValue(bestBin, sigHist, maxV, lower_cut)
+		ratingRounded = False# = self.checkRoundingEffects(opts, sigHist, bkgHistList, cutValue, bestCut, lower_cut)
+
+		optimalCutValue = None
+		optimalRating = None
+		if ratingRounded:
+			optimalCutValue = cutValue
+			optimalRating = ratingRounded
+		elif lower_cut:
+			optimalCutValue = sigHist.GetBinLowEdge(bestBin+1)
+			optimalRating = bestCut
 		else:
-			graph.SetPoint(ibin, sigHist.GetBinLowEdge(ibin), rating)
+			optimalCutValue = sigHist.GetBinLowEdge(bestBin)
+			optimalRating = bestCut
 		
-		if not bestCut or opts.method.compare(rating, bestCut):
-			if checkMCStatistics(opts, sigHistMC, bkgHistMCList, ibin):
-				bestCut = rating
-				bestBin = ibin
+		# check that if the cut Value is lower than min/larger than max the bin should be under/overflow bin
+		# the cut value should be set to min or max value of this variable
+		optimalCutValue = self.checkCutValue(optimalCutValue, bestBin, nbins, minV, maxV, lower_cut)
 
-	if opts.enable_plots:
-		plotRating(opts, graph)
+		bkgHist = addHists(bkgHistList)
 
-	cutValue = getRoundedCutValue(opts, bestBin, sigHist)
-	ratingRounded = False# = checkRoundingEffects(opts, sigHist, bkgHistList, cutValue, bestCut, bkgUnc)
+		return optimalCutValue, optimalRating, sigHist, bkgHist
 
-	optimalCutValue = None
-	optimalRating = None
-	if ratingRounded:
-		optimalCutValue = cutValue
-		optimalRating = ratingRounded
-	elif opts.lower_cut:
-		optimalCutValue = sigHist.GetBinLowEdge(bestBin+1)
-		optimalRating = bestCut
-	else:
-		optimalCutValue = sigHist.GetBinLowEdge(bestBin)
-		optimalRating = bestCut
-	
-	# check that if the cut Value is lower than min/larger than max the bin should be under/overflow bin
-	# the cut value should be set to min or max value of this variable
-	optimalCutValue = checkCutValue(opts, optimalCutValue, bestBin)
+	def calcCutRating(self, sigHist, bkgHistList, lower_cut, ibin):
+		sig_nEvents = 0
+		bkg_nEvents = 0
+		if lower_cut:
+			begin = 0
+			sig_nEvents, bkg_nEvents = calcIntegral(sigHist, bkgHistList, begin, ibin)
+		else:
+			end = sigHist.GetNbinsX()+1
+			sig_nEvents, bkg_nEvents = calcIntegral(sigHist, bkgHistList, ibin, end)
 
-	bkgHist = addHists(bkgHistList)
+		# TODO: fix methods which are lumi depened
+		return self.method.calc(sig_nEvents, bkg_nEvents, self.bkgUnc)
 
-	return optimalCutValue, optimalRating, sigHist, bkgHist
+	def checkMCStatistics(self, sigHistMC, bkgHistMCList, lower_cut, ibin):
+		sig_nMCEvents = 0
+		bkg_nMCEvents = 0
+		if lower_cut:
+			begin = 0
+			sig_nMCEvents, bkg_nMCEvents = calcIntegral(sigHistMC, bkgHistMCList, begin, ibin)
+		else:
+			end = sigHistMC.GetNbinsX()+1
+			sig_nMCEvents, bkg_nMCEvents = calcIntegral(sigHistMC, bkgHistMCList, ibin, end)
+
+		if (sig_nMCEvents < 10) or (bkg_nMCEvents < 10):
+			return False
+		return True
+
+	def getRoundedCutValue(self, binC, hist, maxV, lower_cut):
+		value = None
+		if lower_cut:
+			value = hist.GetBinLowEdge(binC+1)
+		else:
+			value = hist.GetBinLowEdge(binC)
+		if maxV < 10:
+			value = round(value,1)
+		elif maxV < 100:
+			value = round(value)
+		elif maxV < 2000:
+			value = round(value,-1)
+		elif maxV < 10000:
+			value = round(value, -2)
+		elif maxV < 100000:
+			value = round(value, -3)
+		elif maxV < 1000000:
+			value = round(value, -4)
+		return value
+
+	def checkRoundingEffects(self, sigHist, bkgHistList, cutValue, rating, lower_cut):
+		binC = sigHist.GetXaxis().FindBin(cutValue)
+		ratingRounded = self.calcCutRating(sigHist, bkgHistList, lower_cut, binC)
+		if abs(rating - ratingRounded) / rating > 0.1:
+			print "ERROR: rounding influences the ratings too much"
+			return None
+		return ratingRounded
+
+	def checkCutValue(self, optimalCutValue, bestBin, nbins, minV, maxV, lower_cut):
+		if lower_cut:
+			if (optimalCutValue < maxV):
+				return optimalCutValue # everythin is fine
+			elif (optimalCutValue > maxV) and (bestBin == nbins):
+				return maxV # the overflow bin is chose, set the cut to something meaningful
+			else:
+				print "ERROR: cut value to larger, but the corresponding bin is not the overflow bin"
+				return optimalCutValue
+		else:
+			if (optimalCutValue > minV):
+				return optimalCutValue # everything is fine
+			elif (optimalCutValue < minV) and (bestBin == 0):
+				return minV # the underflow bin is chosen, set the cut to something meaningful
+			else:
+				print "ERROR: cut value is too small, but the corresponding bin is not the underflow bin"
+				return optimalCutValue
+
 
 ###############################
 
@@ -238,12 +259,12 @@ def parse_options():
 		parser.add_argument("-s", "--signal", required=True, help="the signal sample")
 		parser.add_argument("-b", "--background", dest="bkgs", required=True, action="append", help="the background samples")
 		parser.add_argument("--bkgUnc", default=None, help="the background uncertainty")
-		parser.add_argument("--nBins", default=100, help="the number of bins which are used to define the optimal cut")
+		parser.add_argument("--nbins", default=100, help="the number of bins which are used to define the optimal cut")
 		parser.add_argument("--lower-cut", action="store_true", help="events survive when their value is lower than the cut value")
 
 		parser.add_argument("var", help="the variable name which should be analysed (need to be stored in the trees)")
-		parser.add_argument("min", help="the minimum value for the variable")
-		parser.add_argument("max", help="the maximum value for the variable")
+		parser.add_argument("min", type=float, help="the minimum value for the variable")
+		parser.add_argument("max", type=float, help="the maximum value for the variable")
 
 		opts = parser.parse_args()
 
@@ -253,25 +274,21 @@ def parse_options():
 
 ###############################
 
-Settings = namedtuple("Settings", "method var nBins min max event_weight lumi enable_plots preselection lower_cut")
-
 def main():
-		opts = parse_options()
+	gROOT.SetBatch(True)
+	opts = parse_options()
 
-		sigFile = TFile.Open(opts.signal)
-		signal = sigFile.Get(opts.tree_name)
+	signal = utils.load_chain([opts.signal], opts.tree_name, print_files=True)
 
-		bkgFileList = []
-		backgrounds = []
-		for bkg in opts.bkgs:
-			bkgFile = TFile.Open(bkg)
-			bkgFileList.append(bkgFile)
-			backgrounds.append(bkgFile.Get(opts.tree_name))
+	backgrounds = []
+	for bkg in opts.bkgs:
+		backgrounds.append(utils.load_chain([bkg], opts.tree_name, print_files=True))
 
+	finder = CutFinder()
+	initCutFinder(finder, opts, signal, backgrounds)
 
-		config = Settings(opts.method, opts.var, opts.nBins, opts.min, opts.max, opts.event_weight, opts.lumi, opts.enable_plots, opts.preselection, opts.lower_cut)
-		cutValue, rating, sigHist, bkgHist = getOptimalCut(config, signal, backgrounds, opts.bkgUnc)
-		print cutValue, rating
+	cutValue, rating, sigHist, bkgHist = finder.getOptimalCut(opts.var, opts.nbins, opts.min, opts.max, opts.lower_cut)
+	print cutValue, rating
 
 ###############################
 
