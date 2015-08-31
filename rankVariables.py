@@ -7,7 +7,7 @@ import PlotStyle
 
 from tabulate import tabulate
 from ratingMethods import *
-import getOptimalCut
+from getOptimalCut import CutFinder
 import utils
 
 ###############################
@@ -19,74 +19,112 @@ def scale(hist):
 
 ###############################
 
-def getRating(opts, signal, backgrounds):
-	sigHist = utils.getHistogram(opts, signal, "sig")
-	bkgHist = None
-	for i, bkgTree in enumerate(backgrounds):
-		if not bkgHist:
-			bkgHist = utils.getHistogram(opts, bkgTree, "bkg_" + str(i))
-		else:
-			bkgHist.Add(utils.getHistogram(opts, bkgTree, "bkg_" + str(i)))
-
-	sigHist = scale(sigHist)
-	bkgHist = scale(bkgHist)
-	
-	rating = opts.method.calc(sigHist, bkgHist)
-
-	storeVar = True
-	if opts.method.title == "overlap":
-		storeVar = False
-		# to avoid problems using the overlap method
-		# overlap sometimes wants to cut at the same variable as in the step before
-		# this stops the optimisation
-
-	return rating, storeVar, sigHist, bkgHist
+Rating = namedtuple("Rating", "var cut rating lower_cut sigHist bkgHist nEvents_sig nEvents_bkg")
 
 ###############################
 
-Rating = namedtuple("Rating", "var cut rating lower_cut sigHist bkgHist")
+def initVariableRanker(ranker, opts, signal, backgrounds):
+	ranker.signal = signal
+	ranker.backgrounds = backgrounds
+	ranker.flatBkgUncertainty = opts.flatBkgUncertainty
+	ranker.preselection = opts.preselection
+	ranker.event_weight = opts.event_weight
+	ranker.lumi = opts.lumi
+	ranker.method = opts.method
+	ranker.useGetOptimalCut = opts.useGetOptimalCut
 
-def rankVariables(opts, signal, backgrounds, useGetOptimalCut, bkgUnc, lastCutVar=None):
-	gROOT.SetBatch(True)
-	varRating = []
+###############################
 
-	for var, rangeDef in opts.Variables.iteritems():
-		cut = None
-		rating = None
-		storeVar = True
-		sigHist = None
-		bkgHist = None
-		config = getOptimalCut.Settings(opts.method, var, rangeDef.nBins, rangeDef.min, rangeDef.max, opts.event_weight, opts.lumi, opts.enable_plots, opts.preselection, rangeDef.lower_cut)
-		if useGetOptimalCut:
-			cut, rating, sigHist, bkgHist = getOptimalCut.getOptimalCut(config, signal, backgrounds, bkgUnc)
+def initCutFinder(finder, ranker):
+	for key in finder.__dict__.keys():
+		setattr(finder, key, getattr(ranker, key))
+
+###############################
+
+class VariableRanker(object):
+	def __init__(self):
+		self.signal = None
+		self.backgrounds = None
+		self.flatBkgUncertainty = None
+		self.preselection = "1"
+		self.event_weight = 1.
+		self.lumi = 10e3
+		self.method = "sig"
+		self.enable_plots = False
+		self.useGetOptimalCut = False
+		self.finder = None
+
+	def rankVariables(self, variables, iteration=0):
+		varRating = []
+
+		for var, rangeDef in variables.iteritems():
+			cut = None
+			rating = None
+			storeVar = True
+			nEvents_sig = -1
+			nEvents_bkg = -1
+			sigHist = None
+			bkgHist = None
+
+			if self.useGetOptimalCut:
+				result = self.finder.getOptimalCut(var, rangeDef.nBins, rangeDef.min, rangeDef.max, rangeDef.lower_cut, iteration)
+				cut = result.cutValue
+				rating = result.rating
+				nEvents_bkg = result.nEvents_bkg
+				nEvents_sig = result.nEvents_sig
+				sigHist = result.sigHist
+				bkgHist = result.bkgHist
+			else:
+				rating, storeVar, sigHist, bkgHist = self.getRating(var, rangeDef.nBins, rangeDef.min, rangeDef.max)
+
+			if storeVar:
+				varRating.append(Rating(var, cut, rating, rangeDef.lower_cut, sigHist, bkgHist, nEvents_sig, nEvents_bkg))
+				# the variable should generally be stored
+			elif (not storeVar) and (var != lastCutVar):
+				varRating.append(Rating(var, cut, rating, rangeDef.lower_cut, sigHist, bkgHist, nEvents_sig, nEvents_bkg))
+				# the variable should not be stored for some methods, when it is not used for the ranking
+				# e.g. for overlap
+
+		# how to handle other ranking methods, e.g. TMVA methods
+
+		varRating.sort(cmp=lambda a, b: self.method.compare(a.rating, b.rating) and -1 or 1)
+
+		table = []
+		header = None
+		if self.useGetOptimalCut:
+			header = ["variable name", "cut value", self.method.title, "signal", "background"]
+			for rating in varRating:
+				table.append([rating.var, rating.cut, rating.rating, rating.nEvents_sig, rating.nEvents_bkg])
 		else:
-			rating, storeVar, sigHist, bkgHist = getRating(config, signal, backgrounds)
+			header = ["variable name", self.method.title]
+			for rating in varRating:
+				table.append([rating.var, rating.rating])
+		print tabulate(table, headers=header, tablefmt="simple")
 
-		if storeVar:
-			varRating.append(Rating(var, cut, rating, rangeDef.lower_cut, sigHist, bkgHist))
-			# the variable should generally be stored
-		elif (not storeVar) and (var != lastCutVar):
-			varRating.append(Rating(var, cut, rating, rangeDef.lower_cut, sigHist, bkgHist))
-			# the variable should not be stored for some methods, when it is not used for the ranking
-			# e.g. for overlap
+		return varRating
 
-	# how to handle other ranking methods, e.g. TMVA methods
+	def getRating(self, var, nbins, minV, maxV):
+		sigHist = utils.getHistogram(var, nbins, minV, maxV, self.signal, self.event_weight, "sig", self.preselection, self.lumi)
+		bkgHist = None
+		for i, bkgTree in enumerate(self.backgrounds):
+			if not bkgHist:
+				bkgHist = utils.getHistogram(var, nbins, minV, maxV, bkgTree, self.event_weight, "bkg_" + str(i), self.preselection, self.lumi)
+			else:
+				bkgHist.Add(utils.getHistogram(var, nbins, minV, maxV, bkgTree, self.event_weight, "bkg_" + str(i), self.preselection, self. lumi))
 
-	varRating.sort(cmp=lambda a, b: opts.method.compare(a.rating, b.rating) and -1 or 1)
+		sigHist = scale(sigHist)
+		bkgHist = scale(bkgHist)
+		
+		rating = self.method.calc(sigHist, bkgHist)
 
-	table = []
-	header = None
-	if useGetOptimalCut:
-		header = ["variable name", "cut value", opts.method.title, "signal", "background"]
-		for rating in varRating:
-			table.append([rating.var, rating.cut, rating.rating, sigHist.Integral(), bkgHist.Integral()])
-	else:
-		header = ["variable name", opts.method.title]
-		for rating in varRating:
-			table.append([rating.var, rating.rating])
-	print tabulate(table, headers=header, tablefmt="simple")
+		storeVar = True
+		if self.method.title == "overlap":
+			storeVar = False
+			# to avoid problems using the overlap method
+			# overlap sometimes wants to cut at the same variable as in the step before
+			# this stops the optimisation
 
-	return varRating
+		return rating, storeVar, sigHist, bkgHist
 
 ###############################
 
@@ -103,7 +141,7 @@ def parse_options():
         parser.add_argument("-l", "--lumi", default=10e3, help="the luminosity which should be used")
         parser.add_argument("-s", "--signal", required=True, help="the signal sample")
         parser.add_argument("-b", "--background", dest="bkgs", required=True, action="append", help="the background sample")
-        parser.add_argument("--bkgUnc", default=None, help="the background uncertainty")
+        parser.add_argument("--flatBkgUncertainty", default=None, help="the background uncertainty")
      
         parser.add_argument("varFile", help="a python file with a list of variables which should analysed")
 
@@ -123,24 +161,27 @@ def parse_options():
 ###############################
 
 def main():
+	gROOT.SetBatch(True)
 	opts = parse_options()
 
-	sigFile = TFile.Open(opts.signal)
-	signal = sigFile.Get(opts.tree_name)
+	signal = utils.load_chain([opts.signal], opts.tree_name, print_files=True)
 
-	bkgFileList = []
 	backgrounds = []
 	for bkg in opts.bkgs:
-		bkgFile = TFile.Open(bkg)
-		bkgFileList.append(bkgFile)
-		backgrounds.append(bkgFile.Get(opts.tree_name))
+		backgrounds.append(utils.load_chain([bkg], opts.tree_name, print_files=True))
+
+	ranker = VariableRanker()
+	initVariableRanker(ranker, opts, signal, backgrounds)
+
+	finder = CutFinder()
+	initCutFinder(finder, self)
+	ranker.finder = finder
 
 	config = {}
 	execfile(opts.varFile, config)
 	variables = config["Variables"]
-	opts.Variables = variables
 
-	outcome = rankVariables(opts, signal, backgrounds, useGetOptimalCut, opts.useGetOptimalCut, opts.bkgUnc)
+	outcome = ranker.rankVariables(variables)
 
 ###############################
 

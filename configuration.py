@@ -2,6 +2,16 @@ import ROOT
 from collections import namedtuple
 Sample = namedtuple("Sample", "name chain color")
 
+def damp_linear5(iterations):
+	if iterations >= 5:
+		return 0.
+	return 0.5 - (iterations * 0.1)
+
+damping_funcs = {
+	'lin5': damp_linear5,
+	'exp': lambda i: 0.5/2**i,
+}
+
 class Configuration(object):
 	def __init__(self):
 		self.signal = None
@@ -17,6 +27,8 @@ class Configuration(object):
 		self.method = None
 		self.use_validation = False # if enabled, an output tree is produced
 
+		self.damp_func = None
+
 def sample(name, chain, color=ROOT.kBlack):
 	return Sample(name, chain, color)
 
@@ -30,6 +42,7 @@ def load_config(filename):
 	env = {
 		"Config": config, 
 		"Utils": utils, 
+		"Damp": damping_funcs,
 		'ROOT': ROOT,
 		'Range': Range,
 		'Sample': sample,

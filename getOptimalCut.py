@@ -78,6 +78,18 @@ def calcIntegral(sigHist, bkgHistList, start, end):
 		bkg_nEvents += bkgHist.Integral(start, end)
 	return sig_nEvents, bkg_nEvents
 
+def calcSingleIntegrals(sigHist, bkgHistList, start, end):
+	sig_nEvents = sigHist.Integral(start, end)
+	bkg_nEventsList = []
+	for bkgHist in bkgHistList:
+		bkg_nEventsList.append(bkgHist.Integral(start, end))
+	return sig_nEvents, bkg_nEventsList
+
+def calcBkgIntegrals(bkgHistList, start, end):
+	bkg_nEventsList = []
+	for bkgHist in bkgHistList:
+		bkg_nEventsList.append(bkgHist.Integral(start, end))
+	return bkg_nEventsList
 
 ###############################
 
@@ -95,7 +107,7 @@ def addHists(histList):
 def initCutFinder(finder, opts, signal, backgrounds):
 	finder.signal = signal
 	finder.backgrounds = backgrounds
-	finder.bkgUnc = opts.bkgUnc
+	finder.flatBkgUncertainty = opts.flatBkgUncertainty
 	finder.preselection = opts.preselection
 	finder.event_weight = opts.event_weight
 	finder.lumi = opts.lumi
@@ -103,18 +115,23 @@ def initCutFinder(finder, opts, signal, backgrounds):
 
 ###############################
 
+CutResult = namedtuple("CutResult", "cutValue rating sigHist bkgHist nEvents_sig nEvents_bkg")
+
+###############################
+
 class CutFinder(object):
 	def __init__(self):
 		self.signal = None
 		self.backgrounds = None
-		self.bkgUnc = None
+		self.flatBkgUncertainty = None
 		self.preselection = "1"
 		self.event_weight = 1.
 		self.lumi = 10e3
 		self.method = "sig"
 		self.enable_plots = False
+		self.damp_func = None
 
-	def getOptimalCut(self, var, nbins, minV, maxV, lower_cut):
+	def getOptimalCut(self, var, nbins, minV, maxV, lower_cut, iteration=0):
 		sigHist = utils.getHistogram(var, nbins, minV, maxV, self.signal, self.event_weight, "sig", self.preselection, self.lumi)
 		sigHistMC = utils.getHistogram(var, nbins, minV, maxV, self.signal, self.event_weight, "sigMC", self.preselection, self.lumi, nMCEvents=True)
 		bkgHistList = []
@@ -129,6 +146,8 @@ class CutFinder(object):
 
 		bestCut = None
 		bestBin = None
+		nEvents_sig = -1
+		nEvents_bkg = -1
 		graph = TGraph()
 		for ibin in xrange(nbins):
 			rating = self.calcCutRating(sigHist, bkgHistList, lower_cut, ibin)
@@ -138,11 +157,14 @@ class CutFinder(object):
 				graph.SetPoint(ibin, sigHist.GetBinLowEdge(ibin), rating)
 			
 			if not bestCut or self.method.compare(rating, bestCut):
-				if self.checkMCStatistics(sigHistMC, bkgHistMCList, lower_cut, ibin):
+				if (self.checkMCStatistics(sigHistMC, bkgHistMCList, lower_cut, ibin) and self.doDamping(bkgHistList, lower_cut, ibin, iteration)):
 					bestCut = rating
 					bestBin = ibin
-
-		# HERE
+					if lower_cut:
+						nEvents_sig, nEvents_bkg = calcIntegral(sigHist, bkgHistList, 0, ibin)
+					else:
+						nEvents_sig, nEvents_bkg = calcIntegral(sigHist, bkgHistList, ibin, sigHist.GetNbinsX()+1)
+					
 		if self.enable_plots:
 			plotRating(var, self.method.title, graph)
 
@@ -166,8 +188,7 @@ class CutFinder(object):
 		optimalCutValue = self.checkCutValue(optimalCutValue, bestBin, nbins, minV, maxV, lower_cut)
 
 		bkgHist = addHists(bkgHistList)
-
-		return optimalCutValue, optimalRating, sigHist, bkgHist
+		return CutResult(optimalCutValue, optimalRating, sigHistMC, bkgHist, nEvents_sig, nEvents_bkg)
 
 	def calcCutRating(self, sigHist, bkgHistList, lower_cut, ibin):
 		sig_nEvents = 0
@@ -180,20 +201,46 @@ class CutFinder(object):
 			sig_nEvents, bkg_nEvents = calcIntegral(sigHist, bkgHistList, ibin, end)
 
 		# TODO: fix methods which are lumi depened
-		return self.method.calc(sig_nEvents, bkg_nEvents, self.bkgUnc)
+		return self.method.calc(sig_nEvents, bkg_nEvents, self.flatBkgUncertainty)
 
+	def doDamping(self, bkgHistList, lower_cut, ibin, iteration):
+		if not self.damp_func:
+			return True
+		bkg_nEventsList = []
+
+		begin = 0
+		end = bkgHistList[0].GetNbinsX()+1
+		if lower_cut:
+			bkg_nEventsList = calcBkgIntegrals(bkgHistList, begin, ibin)
+		else:
+			bkg_nEventsList = calcBkgIntegrals(bkgHistList, ibin, end)
+
+		totalBkgEventsList = calcBkgIntegrals(bkgHistList, begin, end)
+
+		#print iteration, self.damp_func(iteration), bkg_nEventsList[0], totalBkgEventsList[0]
+		for i in xrange(len(bkg_nEventsList)):
+			if bkg_nEventsList[i] < (self.damp_func(iteration) * totalBkgEventsList[i]):
+				return False
+		return True
+
+
+	# same function for exp events depending on damping
 	def checkMCStatistics(self, sigHistMC, bkgHistMCList, lower_cut, ibin):
 		sig_nMCEvents = 0
-		bkg_nMCEvents = 0
+		bkg_nMCEventsList = []
 		if lower_cut:
 			begin = 0
-			sig_nMCEvents, bkg_nMCEvents = calcIntegral(sigHistMC, bkgHistMCList, begin, ibin)
+			sig_nMCEvents, bkg_nMCEventsList = calcSingleIntegrals(sigHistMC, bkgHistMCList, begin, ibin)
 		else:
 			end = sigHistMC.GetNbinsX()+1
-			sig_nMCEvents, bkg_nMCEvents = calcIntegral(sigHistMC, bkgHistMCList, ibin, end)
+			sig_nMCEvents, bkg_nMCEventsList = calcSingleIntegrals(sigHistMC, bkgHistMCList, ibin, end)
 
-		if (sig_nMCEvents < 10) or (bkg_nMCEvents < 10):
+		if (sig_nMCEvents < 10):
+			# bkg_Events < returnDamp * totalBkgEvents
 			return False
+		for bkg_nMCEvents in bkg_nMCEventsList:
+			if bkg_nMCEvents < 10:
+				return False
 		return True
 
 	def getRoundedCutValue(self, binC, hist, maxV, lower_cut):
@@ -258,7 +305,7 @@ def parse_options():
 		parser.add_argument("-l", "--lumi", default=10e3, help="the luminosity which should be used for the optimisation")
 		parser.add_argument("-s", "--signal", required=True, help="the signal sample")
 		parser.add_argument("-b", "--background", dest="bkgs", required=True, action="append", help="the background samples")
-		parser.add_argument("--bkgUnc", default=None, help="the background uncertainty")
+		parser.add_argument("--flatBkgUncertainty", default=None, help="the background uncertainty")
 		parser.add_argument("--nbins", default=100, help="the number of bins which are used to define the optimal cut")
 		parser.add_argument("--lower-cut", action="store_true", help="events survive when their value is lower than the cut value")
 
@@ -287,8 +334,8 @@ def main():
 	finder = CutFinder()
 	initCutFinder(finder, opts, signal, backgrounds)
 
-	cutValue, rating, sigHist, bkgHist = finder.getOptimalCut(opts.var, opts.nbins, opts.min, opts.max, opts.lower_cut)
-	print cutValue, rating
+	result = finder.getOptimalCut(opts.var, opts.nbins, opts.min, opts.max, opts.lower_cut)
+	print result.cutValue, result.rating
 
 ###############################
 

@@ -7,8 +7,8 @@ import PlotStyle
 from collections import namedtuple
 
 from ratingMethods import *
-import rankVariables
-import getOptimalCut
+from rankVariables import VariableRanker
+from getOptimalCut import CutFinder
 import configuration
 from tabulate import tabulate
 
@@ -65,6 +65,45 @@ def saveHistograms(rFile, varList, counter):
 
 ###############################
 
+def initGraphs(varList):
+	graphs = {}
+	for var in varList:
+		graphs[var] = TGraph()
+	graphs["rating"] = TGraph()
+	return graphs
+
+def fillGraphs(graphs, varList, counter):
+	for varItem in varList:
+		graphs[varItem.var].SetPoint(counter, counter, varItem.cut)
+
+	graphs["rating"].SetPoint(counter, counter, varList[0].rating)
+
+def saveGraphs(graphs, rFile):
+	directory = rFile.mkdir("iterationPlots")
+	for name, graph in graphs.iteritems():
+		directory.WriteTObject(graph, name)
+
+###############################
+
+def initObject(target, source, useGetOptimalCut=None):
+	for key in target.__dict__.keys():
+		# things only needed for the ranking:
+		if key == "useGetOptimalCut":  
+			setattr(target, key, useGetOptimalCut)
+		elif (key == "finder"):
+			pass
+
+		# signal and background are stored as sample object for the optimisation
+		# but only as chain for the VariableRanker and CutFinder
+		elif (key == "signal"):
+			setattr(target, key, getattr(source, key).chain)
+		elif (key == "backgrounds"):
+			setattr(target, key, [b.chain for b in source.backgrounds])
+		else:
+			setattr(target, key, getattr(source, key))
+
+###############################
+
 def optimiseCuts(config, rFile):
 	rankMeth_inMETHODS = False
 	for m in METHODS:
@@ -84,9 +123,18 @@ def optimiseCuts(config, rFile):
 	cutList = {}
 	counter = 0
 
+	ranker = VariableRanker()
+	initObject(ranker, config, rankMeth_inMETHODS)
+	finder = CutFinder()
+	initObject(finder, config)
+	ranker.finder = finder
+
+	graphs = initGraphs(config.Variables)
+
 	while True:
-		varList = rankVariables.rankVariables(config, config.signal.chain, [b.chain for b in config.backgrounds], rankMeth_inMETHODS, config.flatBkgUncertainty, bestVar)
+		varList = ranker.rankVariables(config.Variables, counter)
 		saveHistograms(rFile, varList, counter)
+		fillGraphs(graphs, varList, counter)
 
 		bestVar = varList[0].var 
 		
@@ -98,8 +146,10 @@ def optimiseCuts(config, rFile):
 			cutDirection = varList[0].lower_cut
 		else:
 			rangeDef = config.Variables[bestVar]
-			optiConfig = getOptimalCut.Settings(optMethod, bestVar, rangeDef.nBins, rangeDef.min, rangeDef.max, config.event_weight, config.enable_plots, config.preselection, rangeDef.lower_cut)
-			bestCut, bestRating, sigHist, bkgHist = getOptimalCut.getOptimalCut(optiConfig, config.signal.chain, [b.chain for b in config.backgrounds], config.flatBkgUncertainty)
+
+			result = finder.getOptimalCut(bestVar, rangeDef.nBins, rangeDef.min, rangeDef.max, rangeDef.lower_cut, counter)
+			bestCut = result.cutValue
+			bestRating = result.rating
 			cutDirectionString = "<" if rangeDef.lower_cut else ">"
 			cutDirection = rangeDef.lower_cut
 
@@ -109,6 +159,8 @@ def optimiseCuts(config, rFile):
 		# add the calculated cut to the preselection for the next iteration
 		cutString = "*(" + bestVar + cutDirectionString + str(bestCut) + ")"
 		config.preselection += cutString
+		ranker.preselection = config.preselection
+		finder.preselection = config.preselection
 
 		# prepare a list which is used as final result
 		cutList = addToCutList(cutList, bestVar, cutDirection, bestCut)
@@ -116,12 +168,14 @@ def optimiseCuts(config, rFile):
 		prevRating = bestRating
 		counter += 1
 
+	saveGraphs(graphs, rFile)
+
 	return cutList
 
 ###############################
 
 def terminateLoop(prev, cur):
-	return abs(prev - cur) / prev < 0.01
+	return abs(prev - cur) / abs(prev) < 0.01
 
 ###############################
 
@@ -137,6 +191,7 @@ def parse_options():
 ###############################
 
 def main():
+	gROOT.SetBatch(True)
 	gROOT.ProcessLine("gErrorIgnoreLevel = 1001;") # ignore INFO and below
 
 	opts = parse_options()
@@ -146,7 +201,6 @@ def main():
 
 	checkInputSettings(config)
 	cutList = optimiseCuts(config, rFile)
-
 
 	table = []
 	print "\n\nFINAL RESULTS\n"

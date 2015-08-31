@@ -9,15 +9,16 @@ def getHistogram(var, nBins, minV, maxV, tree, event_weight, name, preselection,
 	if nMCEvents:
 		eventWeight = 1
 	name += "_" + var
+
 	nEvents = tree.Draw(draw_cmd.format(var=var, hist=name), str(eventWeight) + "*(" + str(preselection) + ")", "e")
 	hist = gDirectory.Get(name)
-
-	if not nMCEvents:
-		hist.Scale(lumi)
 
 	if not hist:
 		print "ERROR: histogram could not be loaded correctly --> maybe it is empty?"
 		sys.exit(1)
+
+	if not nMCEvents:
+		hist.Scale(lumi)
 
 	hist.SetDirectory(gROOT)
 
