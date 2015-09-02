@@ -168,6 +168,8 @@ class CutFinder(object):
 		if self.enable_plots:
 			plotRating(var, self.method.title, graph)
 
+		if not bestBin:
+			bestBin = 0
 		cutValue = self.getRoundedCutValue(bestBin, sigHist, maxV, lower_cut)
 		ratingRounded = False# = self.checkRoundingEffects(opts, sigHist, bkgHistList, cutValue, bestCut, lower_cut)
 
