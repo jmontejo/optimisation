@@ -14,7 +14,7 @@ def getHistogram(var, nBins, minV, maxV, tree, event_weight, name, preselection,
 	hist = gDirectory.Get(name)
 
 	if not hist:
-		print "ERROR: histogram could not be loaded correctly --> maybe it is empty?"
+		print "ERROR: ", var, " histogram could not be loaded correctly --> maybe it is empty?"
 		sys.exit(1)
 
 	if not nMCEvents:
