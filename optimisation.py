@@ -157,7 +157,7 @@ def optimiseCuts(config, rFile):
 			break
 
 		# add the calculated cut to the preselection for the next iteration
-		cutString = "*(" + bestVar + cutDirectionString + str(bestCut) + ")"
+		cutString = " && (" + bestVar + cutDirectionString + str(bestCut) + ")"
 		config.preselection += cutString
 		ranker.preselection = config.preselection
 		finder.preselection = config.preselection
@@ -210,6 +210,9 @@ def main():
 		table.append([cut, cutDirectionString, cutInfo.value])
 	print tabulate(table, headers=header, tablefmt="simple")
 
+	print "\n\nCut string which can directly used for other plotting code"
+	print config.preselection
+
 	rFile.Close()
 
 
@@ -217,3 +220,6 @@ def main():
 
 if __name__ == '__main__':
 	main()
+
+###############################
+
