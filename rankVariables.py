@@ -44,7 +44,9 @@ def initCutFinder(finder, ranker):
 class VariableRanker(object):
 	def __init__(self):
 		self.signal = None
+		self.signal_scale = 1.0
 		self.backgrounds = None
+		self.backgrounds_scale = None
 		self.flatBkgUncertainty = None
 		self.preselection = "1"
 		self.event_weight = 1.
@@ -104,13 +106,19 @@ class VariableRanker(object):
 		return varRating
 
 	def getRating(self, var, nbins, minV, maxV):
-		sigHist = utils.getHistogram(var, nbins, minV, maxV, self.signal, self.event_weight, "sig", self.preselection, self.lumi)
+		sigHist = utils.getHistogram(var, nbins, minV, maxV, self.signal, self.event_weight, self.signal_scale, "sig", self.preselection, self.lumi)
 		bkgHist = None
+
+		# if background scale list is not initialized, just fill it with 1.
+		if not self.backgrounds_scale:
+			for i in self.backgrounds:
+				self.backgrounds_scale.append(1.0)
+
 		for i, bkgTree in enumerate(self.backgrounds):
 			if not bkgHist:
-				bkgHist = utils.getHistogram(var, nbins, minV, maxV, bkgTree, self.event_weight, "bkg_" + str(i), self.preselection, self.lumi)
+				bkgHist = utils.getHistogram(var, nbins, minV, maxV, bkgTree, self.event_weight, self.backgrounds_scale[i], "bkg_" + str(i), self.preselection, self.lumi)
 			else:
-				bkgHist.Add(utils.getHistogram(var, nbins, minV, maxV, bkgTree, self.event_weight, "bkg_" + str(i), self.preselection, self. lumi))
+				bkgHist.Add(utils.getHistogram(var, nbins, minV, maxV, bkgTree, self.event_weight, self.backgrounds_scale[i], "bkg_" + str(i), self.preselection, self. lumi))
 
 		sigHist = scale(sigHist)
 		bkgHist = scale(bkgHist)

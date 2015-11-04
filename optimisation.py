@@ -97,8 +97,12 @@ def initObject(target, source, useGetOptimalCut=None):
 		# but only as chain for the VariableRanker and CutFinder
 		elif (key == "signal"):
 			setattr(target, key, getattr(source, key).chain)
+		elif (key == "signal_scale"):
+			setattr(target, key, getattr(source, "signal").weight)
 		elif (key == "backgrounds"):
 			setattr(target, key, [b.chain for b in source.backgrounds])
+		elif (key == "backgrounds_scale"):
+			setattr(target, key, [b.weight for b in source.backgrounds])
 		else:
 			setattr(target, key, getattr(source, key))
 

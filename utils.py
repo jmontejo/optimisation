@@ -1,7 +1,7 @@
 from ROOT import *
 import sys
 
-def getHistogram(var, nBins, minV, maxV, tree, event_weight, name, preselection, lumi, nMCEvents=False):
+def getHistogram(var, nBins, minV, maxV, tree, event_weight, extra_weight, name, preselection, lumi, nMCEvents=False):
 	draw_cmd = "{var}>>{hist}"
 	draw_cmd += "(" + str(nBins) + "," + str(minV) + "," + str(maxV) + ")"
 
@@ -10,7 +10,7 @@ def getHistogram(var, nBins, minV, maxV, tree, event_weight, name, preselection,
 		eventWeight = 1
 	name += "_" + var
 
-	nEvents = tree.Draw(draw_cmd.format(var=var, hist=name), str(eventWeight) + "*(" + str(preselection) + ")", "e")
+	nEvents = tree.Draw(draw_cmd.format(var=var, hist=name), str(eventWeight) + "*" + str(extra_weight) + "*(" + str(preselection) + ")", "e")
 	hist = gDirectory.Get(name)
 
 	if not hist:

@@ -122,7 +122,9 @@ CutResult = namedtuple("CutResult", "cutValue rating sigHist bkgHist nEvents_sig
 class CutFinder(object):
 	def __init__(self):
 		self.signal = None
+		self.signal_scale = 1.
 		self.backgrounds = None
+		self.backgrounds_scale = None
 		self.flatBkgUncertainty = None
 		self.preselection = "1"
 		self.event_weight = 1.
@@ -132,13 +134,19 @@ class CutFinder(object):
 		self.damp_func = None
 
 	def getOptimalCut(self, var, nbins, minV, maxV, lower_cut, iteration=0):
-		sigHist = utils.getHistogram(var, nbins, minV, maxV, self.signal, self.event_weight, "sig", self.preselection, self.lumi)
-		sigHistMC = utils.getHistogram(var, nbins, minV, maxV, self.signal, self.event_weight, "sigMC", self.preselection, self.lumi, nMCEvents=True)
+		sigHist = utils.getHistogram(var, nbins, minV, maxV, self.signal, self.event_weight, self.signal_scale, "sig", self.preselection, self.lumi)
+		sigHistMC = utils.getHistogram(var, nbins, minV, maxV, self.signal, self.event_weight, self.signal_scale, "sigMC", self.preselection, self.lumi, nMCEvents=True)
 		bkgHistList = []
 		bkgHistMCList = []
+
+		# if background scale list is not initialized, just fill it with 1.
+		if not self.backgrounds_scale:
+			for i in self.backgrounds:
+				self.backgrounds_scale.append(1.0)
+
 		for i, bkgTree in enumerate(self.backgrounds):
-			bkgHistList.append(utils.getHistogram(var, nbins, minV, maxV, bkgTree, self.event_weight, "bkg_" + str(i), self.preselection, self.lumi))
-			bkgHistMCList.append(utils.getHistogram(var, nbins, minV, maxV, bkgTree, self.event_weight, "bkgMC_" + str(i), self.preselection, self.lumi, nMCEvents=True))
+			bkgHistList.append(utils.getHistogram(var, nbins, minV, maxV, bkgTree, self.event_weight, self.backgrounds_scale[i], "bkg_" + str(i), self.preselection, self.lumi))
+			bkgHistMCList.append(utils.getHistogram(var, nbins, minV, maxV, bkgTree, self.event_weight, self.backgrounds_scale[i], "bkgMC_" + str(i), self.preselection, self.lumi, nMCEvents=True))
 
 
 		if self.enable_plots:
