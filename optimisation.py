@@ -176,6 +176,27 @@ def optimiseCuts(config, rFile):
 
 	return cutList
 
+def printExpectedEvents(config, title):
+	print "Expected events", title
+
+	expectedEvents = []
+	totalBackground = 0
+
+	for bkg in config.backgrounds:
+		evt = utils.getHistogram("1.0", 1, 0, 2, bkg, config.event_weight, bkg.weight, bkg.name + "_expEvt", config.preselection, config.lumi)
+		expectedEvents.append((bkg.name, evt))
+
+		totalBackground += evt
+
+	expectedEvents.append(("Total SM", totalBackground))
+
+	sig = utils.getHistogram("1.0", 1, 0, 2, config.signal, config.event_weight, config.signal.weight, config.signal.name + "_expEvt", config.preselection, config.lumi)
+	expectedEvents.append((config.signal.name, sig))
+
+
+	print tabulate(expectedEvents, headers=["Sample", "expected events"], tablefmt="simple")
+
+
 ###############################
 
 def terminateLoop(prev, cur):
@@ -213,6 +234,8 @@ def main():
 		cutDirectionString = "<" if cutInfo.lower_cut else ">"
 		table.append([cut, cutDirectionString, cutInfo.value])
 	print tabulate(table, headers=header, tablefmt="simple")
+
+	printExpectedEvents(config, "after final selection")
 
 	print "\n\nCut string which can directly used for other plotting code"
 	print config.preselection
