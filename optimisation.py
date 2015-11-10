@@ -255,9 +255,11 @@ def main():
 	print "\n\narrays which can be used for N-1 plots"
 	cutArray = []
 	varArray = []
+	cvlArray = []
 
-	for var in cutList.keys():
+	for var, info in cutList.keys():
 		varArray.append(var)
+		cvlArray.append(info.value)
 		cuts = [cutPreselection]
 		for cut, cutInfo in cutList.iteritems():
 			if cut == var:
@@ -267,12 +269,17 @@ def main():
 
 		cutArray.append(" && ".join(cuts))
 
+
 	print "CUTS=("
 	print "\t" + "\n\t".join(map(lambda s: '"%s"' % s, cutArray))
 	print ")"
 	
 	print "VARIABLES=("
 	print "\t" + "\n\t".join(map(lambda s: '"%s"' % s, varArray))
+	print ")"
+
+	print "CUTVALUES=("
+	print "\t" + "\n\t".join(map(lambda s: '"%s"' % s, cvlArray))
 	print ")"
 
 	rFile.Close()
