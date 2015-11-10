@@ -45,8 +45,10 @@ class VariableRanker(object):
 	def __init__(self):
 		self.signal = None
 		self.signal_scale = 1.0
+		self.sigMCboundary = 10.
 		self.backgrounds = None
 		self.backgrounds_scale = None
+		self.bkgsMCboundary = None
 		self.flatBkgUncertainty = None
 		self.preselection = "1"
 		self.event_weight = 1.
@@ -111,7 +113,7 @@ class VariableRanker(object):
 
 		# if background scale list is not initialized, just fill it with 1.
 		if not self.backgrounds_scale:
-			for i in self.backgrounds:
+			for i in xrange(len(self.backgrounds)):
 				self.backgrounds_scale.append(1.0)
 
 		for i, bkgTree in enumerate(self.backgrounds):

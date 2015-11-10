@@ -4,6 +4,7 @@ import os
 
 from ROOT import *
 import PlotStyle
+import utils
 from collections import namedtuple
 
 from ratingMethods import *
@@ -99,10 +100,14 @@ def initObject(target, source, useGetOptimalCut=None):
 			setattr(target, key, getattr(source, key).chain)
 		elif (key == "signal_scale"):
 			setattr(target, key, getattr(source, "signal").weight)
+		elif (key == "sigMCboundary"):
+			setattr(target, key, getattr(source, "signal").MCboundary)
 		elif (key == "backgrounds"):
 			setattr(target, key, [b.chain for b in source.backgrounds])
 		elif (key == "backgrounds_scale"):
 			setattr(target, key, [b.weight for b in source.backgrounds])
+		elif (key == "bkgsMCboundary"):
+			setattr(target, key, [b.MCboundary for b in source.backgrounds])
 		else:
 			setattr(target, key, getattr(source, key))
 
@@ -180,21 +185,27 @@ def printExpectedEvents(config, title):
 	print "Expected events", title
 
 	expectedEvents = []
+	MCEvents = []
 	totalBackground = 0
+	totalMCBkg = 0
 
 	for bkg in config.backgrounds:
-		evt = utils.getHistogram("1.0", 1, 0, 2, bkg, config.event_weight, bkg.weight, bkg.name + "_expEvt", config.preselection, config.lumi)
-		expectedEvents.append((bkg.name, evt))
+		evt = utils.getHistogram("1.0", 1, 0, 2, bkg.chain, config.event_weight, bkg.weight, bkg.name + "_expEvt", config.preselection, config.lumi).Integral()
+		# MC events
+		mcevt = utils.getHistogram("1.0", 1, 0, 2, bkg.chain, config.event_weight, bkg.weight, bkg.name + "_expEvt", config.preselection, config.lumi, nMCEvents=True).Integral()
+
+		expectedEvents.append((bkg.name, evt, mcevt))
 
 		totalBackground += evt
+		totalMCBkg += mcevt
 
-	expectedEvents.append(("Total SM", totalBackground))
+	expectedEvents.append(("Total SM", totalBackground, totalMCBkg))
 
-	sig = utils.getHistogram("1.0", 1, 0, 2, config.signal, config.event_weight, config.signal.weight, config.signal.name + "_expEvt", config.preselection, config.lumi)
-	expectedEvents.append((config.signal.name, sig))
+	sig = utils.getHistogram("1.0", 1, 0, 2, config.signal.chain, config.event_weight, config.signal.weight, config.signal.name + "_expEvt", config.preselection, config.lumi).Integral()
+	sigMC = utils.getHistogram("1.0", 1, 0, 2, config.signal.chain, config.event_weight, config.signal.weight, config.signal.name + "_expEvt", config.preselection, config.lumi, nMCEvents=True).Integral()
+	expectedEvents.append((config.signal.name, sig, sigMC))
 
-
-	print tabulate(expectedEvents, headers=["Sample", "expected events"], tablefmt="simple")
+	print tabulate(expectedEvents, headers=["Sample", "expected events", "MC events"], tablefmt="simple")
 
 
 ###############################
@@ -221,6 +232,7 @@ def main():
 
 	opts = parse_options()
 	config = configuration.load_config(opts.configFile)
+	cutPreselection = config.preselection # save the preselection for further usage
 
 	rFile = TFile(opts.configFile.replace(".py", ".root"), "RECREATE")
 
@@ -240,8 +252,30 @@ def main():
 	print "\n\nCut string which can directly used for other plotting code"
 	print config.preselection
 
-	rFile.Close()
+	print "\n\narrays which can be used for N-1 plots"
+	cutArray = []
+	varArray = []
 
+	for var in cutList.keys():
+		varArray.append(var)
+		cuts = [cutPreselection]
+		for cut, cutInfo in cutList.iteritems():
+			if cut == var:
+				continue
+			cutDirectionString = "<" if cutInfo.lower_cut else ">"
+			cuts.append(cut + cutDirectionString + str(cutInfo.value))
+
+		cutArray.append(" && ".join(cuts))
+
+	print "CUTS=("
+	print "\t" + "\n\t".join(map(lambda s: '"%s"' % s, cutArray))
+	print ")"
+	
+	print "VARIABLES=("
+	print "\t" + "\n\t".join(map(lambda s: '"%s"' % s, varArray))
+	print ")"
+
+	rFile.Close()
 
 ###############################
 

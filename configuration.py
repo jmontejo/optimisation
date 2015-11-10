@@ -1,6 +1,6 @@
 import ROOT
 from collections import namedtuple
-Sample = namedtuple("Sample", "name chain weight color")
+Sample = namedtuple("Sample", "name chain weight color MCboundary")
 
 def damp_linear5(iterations):
 	if iterations >= 5:
@@ -33,8 +33,8 @@ class Configuration(object):
 
 		self.damp_func = None
 
-def sample(name, chain, weight=1.0, color=ROOT.kBlack):
-	return Sample(name, chain, weight, color)
+def sample(name, chain, weight=1.0, color=ROOT.kBlack, MCboundary=10.):
+	return Sample(name, chain, weight, color, MCboundary)
 
 def load_config(filename):
 	import utils

@@ -36,7 +36,7 @@ def plotVarDistribution(var, sigHist, bkgHistList):
 	bkgHist = None
 	for hist in bkgHistList:
 		if not bkgHist:
-			bkgHist = hist
+			bkgHist = hist.Clone()
 		else:
 			bkgHist.Add(hist)
 
@@ -123,8 +123,10 @@ class CutFinder(object):
 	def __init__(self):
 		self.signal = None
 		self.signal_scale = 1.
+		self.sigMCboundary = 10.
 		self.backgrounds = None
 		self.backgrounds_scale = None
+		self.bkgsMCboundary = None
 		self.flatBkgUncertainty = None
 		self.preselection = "1"
 		self.event_weight = 1.
@@ -141,7 +143,7 @@ class CutFinder(object):
 
 		# if background scale list is not initialized, just fill it with 1.
 		if not self.backgrounds_scale:
-			for i in self.backgrounds:
+			for i in xrange(len(self.backgrounds)):
 				self.backgrounds_scale.append(1.0)
 
 		for i, bkgTree in enumerate(self.backgrounds):
@@ -165,7 +167,10 @@ class CutFinder(object):
 				graph.SetPoint(ibin, sigHist.GetBinLowEdge(ibin), rating)
 			
 			if not bestCut or self.method.compare(rating, bestCut):
-				if (self.checkMCStatistics(sigHistMC, bkgHistMCList, lower_cut, ibin) and self.doDamping(bkgHistList, lower_cut, ibin, iteration)):
+				if not self.bkgsMCboundary:
+					for i in xrange(len(self.backgrounds)):
+						self.bkgsMCboundary.append(10.)
+				if (self.checkMCStatistics(sigHistMC, bkgHistMCList, self.sigMCboundary, self.bkgsMCboundary, lower_cut, ibin) and self.doDamping(bkgHistList, lower_cut, ibin, iteration)):
 					bestCut = rating
 					bestBin = ibin
 					if lower_cut:
@@ -235,7 +240,7 @@ class CutFinder(object):
 
 
 	# same function for exp events depending on damping
-	def checkMCStatistics(self, sigHistMC, bkgHistMCList, lower_cut, ibin):
+	def checkMCStatistics(self, sigHistMC, bkgHistMCList, sigMCboundary, bkgsMCboundary, lower_cut, ibin):
 		sig_nMCEvents = 0
 		bkg_nMCEventsList = []
 		if lower_cut:
@@ -245,11 +250,11 @@ class CutFinder(object):
 			end = sigHistMC.GetNbinsX()+1
 			sig_nMCEvents, bkg_nMCEventsList = calcSingleIntegrals(sigHistMC, bkgHistMCList, ibin, end)
 
-		if (sig_nMCEvents < 10):
+		if (sig_nMCEvents < sigMCboundary):
 			# bkg_Events < returnDamp * totalBkgEvents
 			return False
-		for bkg_nMCEvents in bkg_nMCEventsList:
-			if bkg_nMCEvents < 10:
+		for i in xrange(len(bkg_nMCEventsList)):
+			if bkg_nMCEventsList[i] < bkgsMCboundary[i]:
 				return False
 		return True
 
