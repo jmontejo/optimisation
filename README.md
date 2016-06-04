@@ -39,26 +39,26 @@ and Config.backgrounds = [Sample(...), Sample(...), ...]
 
 2. adapt the Variables which should be used for the optimisation
 
-Config.Variables = {...} by adding variables into this dictionary
+    Config.Variables = {...} by adding variables into this dictionary
 
-To define a variable, you simply have to add:
+    To define a variable, you simply have to add:
 
-"name": Range( lowerBoundary, upperBoundary, nBins, direction)
+    "name": Range( lowerBoundary, upperBoundary, nBins, direction)
 
-The nBins should be not too fine, otherwise the optimisation needs much longer. A good solution is to select the number of bins such that the selected cuts would end at some round nubmers.
-For the direction, a bool is given. If False is choosen, an upper cut value is searched for, if True is choosen a lower cut value will be given in the end.
+    The nBins should be not too fine, otherwise the optimisation needs much longer. A good solution is to select the number of bins such that the selected cuts would end at some round nubmers.
+    For the direction, a bool is given. If False is choosen, an upper cut value is searched for, if True is choosen a lower cut value will be given in the end.
 
 
 3. One should define which weights and also which preselection should be used. For this, one need to give the correct strings to
 
-Config.event_weight
+    Config.event_weight
 
-Config.preselection
+    Config.preselection
 
 4. For the optimisation, different ranking and optimisation methods can be used. They can be defined by changing "Config.rankingMethod" or "Config.optimisationMethod".
 
-For expample, one can use "sig" which is S / sqrt (B + B * sig_B) for a given background uncertainty sig_B. In order to use the RooStats.NumberCountingUtils.BinomialExpZ function, one need to use "roostats" for the method.
+    For expample, one can use "sig" which is S / sqrt (B + B * sig_B) for a given background uncertainty sig_B. In order to use the RooStats.NumberCountingUtils.BinomialExpZ function, one need to use "roostats" for the method.
 
 5. Another feature is the possibility to apply a damping fucntion. Using this damping, the first cuts are choosen less tight in order to take into account correlations between different variables better.
 
-This can be used by Config.damp_func = Damp["name"], where different functions are given in configuration.py
+    This can be used by Config.damp_func = Damp["name"], where different functions are given in configuration.py
