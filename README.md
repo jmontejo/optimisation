@@ -33,9 +33,9 @@ You can have a look at exapmle-config.py for an easy example how to define the c
 
 1. you should adapt the signal and the background file location by changing the location and probably also the name of the tree for 
 
-Config.signal = Sample("nice_name", Utils.load_chain(<file_location>, <tree_name>))
+    Config.signal = Sample("nice_name", Utils.load_chain(<file_location>, <tree_name>))
 
-and Config.backgrounds = [Sample(...), Sample(...), ...]
+    and Config.backgrounds = [Sample(...), Sample(...), ...]
 
 2. adapt the Variables which should be used for the optimisation
 
