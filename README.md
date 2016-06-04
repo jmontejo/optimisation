@@ -54,6 +54,6 @@ Config.preselection
 
 For expample, one can use "sig" which is S / sqrt (B + B * sig_B) for a given background uncertainty sig_B. In order to use the RooStats.NumberCountingUtils.BinomialExpZ function, one need to use "roostats" for the method.
 
-5) Another feature, is the possibility to apply a damping fucntion. Using this damping, the first cuts are choosen less tight in order to take into account correlations between different variables better.
+5) Another feature is the possibility to apply a damping fucntion. Using this damping, the first cuts are choosen less tight in order to take into account correlations between different variables better.
 
 This can be used by Config.damp_func = Damp["name"], where different functions are given in configuration.py
