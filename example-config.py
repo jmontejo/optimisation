@@ -21,6 +21,7 @@ Config.preselection = "(n_jet>=4) && (jet_pt[0]>80000) && (jet_pt[1]>60000) && (
 Config.rankingMethod = "sig"
 Config.optimisationMethod = "sig"
 #Config.flatBkgUncertainty = 0.2
+#Config.includeMCstat = True
 Config.enable_plots = True
 #Config.use_validation = True 
 

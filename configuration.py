@@ -30,6 +30,7 @@ class Configuration(object):
 		self.flatBkgUncertainty = None
 		self.method = None
 		self.use_validation = False # if enabled, an output tree is produced
+		self.includeMCstat = False
 
 		self.damp_func = None
 
