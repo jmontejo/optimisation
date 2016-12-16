@@ -32,6 +32,7 @@ def initVariableRanker(ranker, opts, signal, backgrounds):
 	ranker.lumi = opts.lumi
 	ranker.method = opts.method
 	ranker.useGetOptimalCut = opts.useGetOptimalCut
+	ranker.includeMCstat = opts.includeMCstat
 
 ###############################
 
@@ -57,6 +58,7 @@ class VariableRanker(object):
 		self.enable_plots = False
 		self.useGetOptimalCut = False
 		self.finder = None
+		self.includeMCstat = False
 
 	def rankVariables(self, variables, iteration=0):
 		varRating = []
@@ -152,6 +154,7 @@ def parse_options():
         parser.add_argument("-s", "--signal", required=True, help="the signal sample")
         parser.add_argument("-b", "--background", dest="bkgs", required=True, action="append", help="the background sample")
         parser.add_argument("--flatBkgUncertainty", default=None, help="the background uncertainty")
+        parser.add_argument("--includeMCstat", action="store_true", help="Consider MC statistics in the uncertainty")
      
         parser.add_argument("varFile", help="a python file with a list of variables which should analysed")
 

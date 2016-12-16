@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import sys
 import os
+from math import *
 
 from ROOT import *
 import PlotStyle
@@ -91,6 +92,20 @@ def calcBkgIntegrals(bkgHistList, start, end):
 		bkg_nEventsList.append(bkgHist.Integral(start, end))
 	return bkg_nEventsList
 
+def calcIntegralError(sigHist, bkgHistList, start, end):
+	sig_error = Double()
+	bkg_error = Double()
+	totbkg_error = 0
+	sig_nEvents = sigHist.IntegralAndError(start, end,sig_error)
+	bkg_nEvents = 0
+	for bkgHist in bkgHistList:
+		bkg_nEvents += bkgHist.IntegralAndError(start, end, bkg_error)
+		totbkg_error += bkg_error*bkg_error
+	totbkg_error = sqrt(totbkg_error)
+	if sig_nEvents==0 or bkg_nEvents==0:
+		return 1,1
+	return sig_error/sig_nEvents, totbkg_error/bkg_nEvents
+
 ###############################
 
 def addHists(histList):
@@ -112,6 +127,7 @@ def initCutFinder(finder, opts, signal, backgrounds):
 	finder.event_weight = opts.event_weight
 	finder.lumi = opts.lumi
 	finder.method = opts.method
+	finder.includeMCstat = opts.includeMCstat
 
 ###############################
 
@@ -134,6 +150,7 @@ class CutFinder(object):
 		self.method = "sig"
 		self.enable_plots = False
 		self.damp_func = None
+		self.includeMCstat = False
 
 	def getOptimalCut(self, var, nbins, minV, maxV, lower_cut, iteration=0):
 		sigHist = utils.getHistogram(var, nbins, minV, maxV, self.signal, self.event_weight, self.signal_scale, "sig", self.preselection, self.lumi)
@@ -210,13 +227,18 @@ class CutFinder(object):
 		bkg_nEvents = 0
 		if lower_cut:
 			begin = 0
-			sig_nEvents, bkg_nEvents = calcIntegral(sigHist, bkgHistList, begin, ibin)
+			sig_nEvents,  bkg_nEvents  = calcIntegral(sigHist, bkgHistList, begin, ibin)
+			sig_relerror, bkg_relerror = calcIntegralError(sigHist, bkgHistList, begin, ibin)
 		else:
 			end = sigHist.GetNbinsX()+1
-			sig_nEvents, bkg_nEvents = calcIntegral(sigHist, bkgHistList, ibin, end)
+			sig_nEvents,  bkg_nEvents  = calcIntegral(sigHist, bkgHistList, ibin, end)
+			sig_relerror, bkg_relerror = calcIntegralError(sigHist, bkgHistList, ibin, end)
 
 		# TODO: fix methods which are lumi depened
-		return self.method.calc(sig_nEvents, bkg_nEvents, self.flatBkgUncertainty)
+		uncertainty = self.flatBkgUncertainty
+		if self.includeMCstat:
+			uncertainty = sqrt(pow(self.flatBkgUncertainty,2)+pow(sig_relerror,2)+pow(bkg_relerror,2))
+		return self.method.calc(sig_nEvents, bkg_nEvents, uncertainty)
 
 	def doDamping(self, bkgHistList, lower_cut, ibin, iteration):
 		if not self.damp_func:
@@ -323,6 +345,7 @@ def parse_options():
 		parser.add_argument("--flatBkgUncertainty", default=None, help="the background uncertainty")
 		parser.add_argument("--nbins", default=100, help="the number of bins which are used to define the optimal cut")
 		parser.add_argument("--lower-cut", action="store_true", help="events survive when their value is lower than the cut value")
+		parser.add_argument("--includeMCstat", action="store_true", help="Consider MC statistics in the uncertainty")
 
 		parser.add_argument("var", help="the variable name which should be analysed (need to be stored in the trees)")
 		parser.add_argument("min", type=float, help="the minimum value for the variable")
