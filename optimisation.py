@@ -257,7 +257,7 @@ def main():
 	varArray = []
 	cvlArray = []
 
-	for var, info in cutList.keys():
+	for var, info in cutList.iteritems():
 		varArray.append(var)
 		cvlArray.append(info.value)
 		cuts = [cutPreselection]
