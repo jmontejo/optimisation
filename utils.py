@@ -34,9 +34,14 @@ def getHistogram(var, nBins, minV, maxV, tree, event_weight, extra_weight, name,
 	return hist
 
 def load_chain(filenames, treename, print_files=False):
-	chain = TChain(treename)
-	for name in filenames:
-		chain.Add(name)
+	if type(treename)==str:
+		chain = TChain(treename)
+		for name in filenames:
+			chain.Add(name)
+	elif type(treename)==list:
+		chain = TChain(treename[0])
+		for name,treename in zip(filenames,treename):
+			chain.Add(name+"/"+treename)
 
 	if print_files:
 		for filename in chain.GetListOfFiles():
