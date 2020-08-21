@@ -9,7 +9,7 @@ RatingMethod = namedtuple("RatingMethod", "name title calc compare")
 def calcSig(sig_nEvents, bkg_nEvents, bkgUnc=None):
 	if bkg_nEvents != 0:
 		if bkgUnc:
-			print "Significance is calculated using some flat background uncertainty"
+			#print "Significance is calculated using some flat background uncertainty",bkgUnc
 			return (sig_nEvents / math.sqrt(bkg_nEvents + (bkgUnc*bkg_nEvents)))
 		return (sig_nEvents / math.sqrt(bkg_nEvents))
 	else:

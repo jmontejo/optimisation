@@ -10,6 +10,11 @@ import utils
 from ratingMethods import *
 
 ###############################
+def outputname(name):
+	BAD = "[]$,"
+	for b in BAD:
+		name = name.replace(b,"_")
+	return name
 
 def ensure_dir(d):
 	if not os.path.exists(d):
@@ -21,12 +26,12 @@ def saveCanv(var, canv, directory, append=None, rootFile=False):
 		name = name + "_" + append
 
 	ensure_dir(directory)
-	canv.SaveAs(os.path.join(directory, name + ".png")) 
+	canv.SaveAs(os.path.join(directory, outputname(name) + ".png")) 
 	ensure_dir(directory + "/pdf")
-	canv.SaveAs(os.path.join(directory, "pdf", name + ".pdf"))
+	canv.SaveAs(os.path.join(directory, "pdf", outputname(name) + ".pdf"))
 	if rootFile:
 		ensure_dir(directory + "/root")
-		canv.SaveAs(os.path.join(directory, "root", name + ".root"))
+		canv.SaveAs(os.path.join(directory, "root", outputname(name) + ".root"))
 
 ###############################
 

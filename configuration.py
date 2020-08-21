@@ -7,13 +7,17 @@ def damp_linear5(iterations):
 		return 0.
 	return 0.5 - (iterations * 0.1)
 
+def damp_exp0_8(iterations):
+	return 0.8**(iterations+1)
+
 def damp_exp0_7(iterations):
-	return 0.7**iterations
+	return 0.7**(iterations+1)
 
 damping_funcs = {
 	'lin5': damp_linear5,
 	'exp': lambda i: 0.5/2**i,
 	'exp_0.7': damp_exp0_7,
+	'exp_0.8': damp_exp0_8,
 }
 
 class Configuration(object):
